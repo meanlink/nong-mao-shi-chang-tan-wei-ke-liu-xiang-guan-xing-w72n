@@ -1,7 +1,7 @@
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,date
 from sqlalchemy import select
 from src.config.database import Session
-from src.models import User,Stall,CampaignWindow,FootfallSample
+from src.models import User,Stall,CampaignWindow,FootfallSample,ResamplingQuota,ResamplingClaim,ResamplingQuotaSlot
 from src.utils.security import hash_password
 from src.services.market import classify_sample
 from migrations.initial import migrate
@@ -31,5 +31,25 @@ def seed():
                         row=FootfallSample(stall_id=stall.id,campaign_window_id=c.id if c else None,sampled_at=stamp,window_label=label,footfall=flow,transactions=tx,revenue=tx*stall.avg_ticket,dwell_seconds=42+idx*9+(day%2)*3,weather='晴' if day not in (3,6) else '小雨',campaign_label=c.label if c else '',source='counter-card',notes='入口计数器与收银台双录');classify_sample(db,row);db.add(row)
             conflict=FootfallSample(stall_id=stalls['B-12'].id,campaign_window_id=campaigns['CAMP-MORN'].id,sampled_at=base+timedelta(days=1,hours=1),window_label='冲突样本',footfall=88,transactions=11,revenue=858,dwell_seconds=61,weather='晴',campaign_label='买一送一',source='activity-chat',notes='活动群标签与排期表不一致');classify_sample(db,conflict);db.add(conflict)
             short=FootfallSample(stall_id=stalls['C-03'].id,sampled_at=base+timedelta(days=9),window_label='不足样本',footfall=2,transactions=0,revenue=0,dwell_seconds=12,weather='晴',source='manual-note',notes='只有一次巡场记录');classify_sample(db,short);db.add(short)
+        db.flush()
+        admin_user=db.scalar(select(User).where(User.email=='admin@demo.local'))
+        analyst_user=db.scalar(select(User).where(User.email=='analyst@demo.local'))
+        today=date.today()
+        if not db.scalar(select(ResamplingQuota).where(ResamplingQuota.quota_date==today)):
+            db.add(ResamplingQuota(quota_date=today,total=5,created_by=admin_user.id));db.flush()
+            db.add_all([ResamplingQuotaSlot(quota_date=today,slot_no=no,claim_id=None) for no in range(1,6)]);db.flush()
+        if not db.scalar(select(ResamplingClaim).where(ResamplingClaim.claim_date==today)):
+            # One pending order the patrol team can reconcile on the sampling page.
+            pending=ResamplingClaim(stall_id=stalls['A-07'].id,claim_date=today,window_label='早市',status='pending',note='早市巡场漏记，需补采',claimed_by=analyst_user.id,claimed_by_name=analyst_user.name);db.add(pending);db.flush()
+            # One fulfilled order demonstrating quota occupation and reconciliation.
+            good=FootfallSample(stall_id=stalls['B-12'].id,sampled_at=datetime.combine(today,datetime.min.time()).replace(hour=8),window_label='早市',footfall=57,transactions=9,revenue=702,dwell_seconds=48,weather='晴',source='manual-note',notes='补采有效样本');classify_sample(db,good);db.add(good);db.flush()
+            fulfilled=ResamplingClaim(stall_id=stalls['B-12'].id,claim_date=today,window_label='早市',status='fulfilled',note='摊位补采已核销',claimed_by=analyst_user.id,claimed_by_name=analyst_user.name,sample_id=good.id,fulfilled_at=datetime.now());db.add(fulfilled);db.flush();good.claim_id=fulfilled.id
+            # The two live orders occupy two of the five shared seats; cancelled ones do not.
+            for slot_no,cid in ((1,pending.id),(2,fulfilled.id)):
+                db.query(ResamplingQuotaSlot).filter(ResamplingQuotaSlot.quota_date==today,ResamplingQuotaSlot.slot_no==slot_no).update({'claim_id':cid})
+            db.flush()
+            # A cancelled order: a late submission afterwards is archived, never reconciled.
+            cancelled=ResamplingClaim(stall_id=stalls['C-03'].id,claim_date=today,window_label='午市',status='cancelled',note='人手调整，撤销认领',claimed_by=analyst_user.id,claimed_by_name=analyst_user.name,cancelled_at=datetime.now());db.add(cancelled);db.flush()
+            late=FootfallSample(stall_id=stalls['C-03'].id,sampled_at=datetime.combine(today,datetime.min.time()).replace(hour=11),window_label='午市',footfall=33,transactions=6,revenue=186,dwell_seconds=35,weather='晴',source='manual-note',notes='撤销后迟到的补录，留档不核销 / 对应认领单已撤销，样本留档待补');classify_sample(db,late);db.add(late)
         db.commit();print({'users':len(USERS),'stalls':len(stalls),'samples':db.scalar(select(FootfallSample.id).order_by(FootfallSample.id.desc()))})
 if __name__=='__main__':seed()

@@ -7,7 +7,7 @@ from sqlalchemy import text
 from src.config.database import Session
 from src.config.settings import REDIS_URL
 from src.middlewares.requests import RequestControl
-from src.routes import auth,stalls,campaigns,samples,analysis,briefs,attribution
+from src.routes import auth,stalls,campaigns,samples,analysis,briefs,attribution,resampling
 from src.controllers import catalog
 from migrations.initial import migrate
 @asynccontextmanager
@@ -25,4 +25,4 @@ async def unhandled(request:Request,exc:Exception):logging.exception('request fa
 def health():
     with Session() as db:db.execute(text('SELECT 1'))
     r=Redis.from_url(REDIS_URL,socket_timeout=2);r.ping();r.close();return {'status':'healthy'}
-for r in [auth.router,stalls.router,campaigns.router,samples.router,attribution.router,analysis.router,briefs.router,catalog.router]:app.include_router(r)
+for r in [auth.router,stalls.router,campaigns.router,samples.router,attribution.router,resampling.router,analysis.router,briefs.router,catalog.router]:app.include_router(r)

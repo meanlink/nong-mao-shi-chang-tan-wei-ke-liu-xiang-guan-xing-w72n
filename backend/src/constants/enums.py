@@ -4,3 +4,4 @@ class SampleStatus(str, Enum): valid='valid'; insufficient='insufficient'; confl
 class AnalysisStatus(str, Enum): queued='queued'; running='running'; completed='completed'; unexplainable='unexplainable'; failed='failed'
 class ReviewStatus(str, Enum): pending='pending'; approved='approved'; rejected='rejected'; blocked='blocked'
 class BriefStatus(str, Enum): draft='draft'; issued='issued'
+class ClaimStatus(str, Enum): pending='pending'; fulfilled='fulfilled'; cancelled='cancelled'

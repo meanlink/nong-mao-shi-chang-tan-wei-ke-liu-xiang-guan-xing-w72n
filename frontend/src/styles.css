@@ -47,4 +47,11 @@
 .attribution-result { color: var(--deep); font-size: 13px; }
 .attribution-result a, .attribution-link { text-decoration: underline; text-underline-offset: 3px; }
 .attribution-notice:empty, .attribution-form .feedback:empty { display: none; }
+.quota-panel { margin-bottom: 22px; }
+.quota-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.quota-form label { display: grid; gap: 6px; font-size: 11px; color: var(--muted); }
+.quota-form input { min-height: 40px; background: var(--paper); border: 1px solid var(--line); padding: 9px; }
+.quota-form .feedback { flex-basis: 100%; }
+.quota-meter { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.quota-meter small { color: var(--muted); font-size: 12px; }
 @media (max-width: 1080px) { .attribution-grid { grid-template-columns: minmax(0, 1fr); } }
